@@ -112,13 +112,12 @@ classdef GangOfSix
  
     methods(Static)
         function ax = plot_tf(ax, tfs)
-            wrap_freqresp = @(sys)freqresp(sys, GangOfSix.freq_to_plot, 'rad/s');
+            wrap_freqresp = @(sys)sigma(sys, GangOfSix.freq_to_plot);
             H = cellfun(wrap_freqresp, tfs, UniformOutput=false);
             
             H = squeeze(vertcat(H{:}));
-            H = abs(H);
-           
-            loglog(ax, GangOfSix.freq_to_plot, H, 'b');
+            H = mag2db(H);
+            semilogx(ax, GangOfSix.freq_to_plot, H, 'b');
             
            
         end

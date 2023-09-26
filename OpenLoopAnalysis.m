@@ -52,63 +52,78 @@ classdef OpenLoopAnalysis
         end
 
         function my_nyquist_plot(obj, ax, location)
-            wrap_get_senitivity = @(st)getSensitivity(st, location);
-            sensitivity = arrayfun(wrap_get_senitivity, obj.sltuner_objs, UniformOutput=false);
-
-
+            % Solve for the size of the analysis point
+            temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
+            ap_dim = size(temp_loop_transfer, 1);
             
-            wrap_plot_nyquist = @(sys)obj.plot_nyquist(ax, sys);
-            cellfun(wrap_plot_nyquist, sensitivity, UniformOutput=false);
+            for i=1:ap_dim
+                sub_location = location + sprintf("(%i)", i);
+                wrap_get_LoopTransfer = @(st)getLoopTransfer(st, sub_location, -1);
+                loop_transfer{i} = arrayfun(wrap_get_LoopTransfer, obj.sltuner_objs, UniformOutput=false);
 
+                wrap_plot_nyquist = @(sys)obj.plot_nyquist(ax, sys);
+                cellfun(wrap_plot_nyquist, loop_transfer{i}, UniformOutput=false);
+            end
+            
+            xlim(ax, [-5, 5]);
+            ylim(ax, [-5, 5]);
             % Plot the unit circle
-            [x, y] = obj.circle(-1, 0, 1);
+            [x, y] = obj.circle(0, 0, 1);
             plot(ax, x, y, 'black--', LineWidth=1);
             
             plot(ax, -1, 0, 'r+');
             
             %Plot the lowest gain margin point
-            [Gm, Pm, Wcg, Wcp] = cellfun(@margin, sensitivity);
-            sensitivity = cellfun(@ss, sensitivity, UniformOutput=false);
-            Gm = squeeze(reshape(Gm, 1, []));
-
-            [minGm, minGmI] = min(abs(mag2db(Gm)));
-            freq = Wcg(minGmI);
-            
-            corosponing_sens = sensitivity(minGmI);
-            H = freqresp(corosponing_sens{:}, freq);
-            X = real(H);
-            Y = imag(H);
-            
-            plot(ax, X, Y, 'g.', MarkerSize=12);
-
-            % Plot the lowest phase margin
-            Pm = squeeze(reshape(Pm, 1, []));
-
-            [minPm, minPmI] = min(abs(Pm));
-            freq = Wcp(minPmI);
-            
-            corosponing_sens = sensitivity(minPmI);
-            H = freqresp(corosponing_sens{:}, freq);
-            X = real(H);
-            Y = imag(H);
-            
-            plot(ax, X, Y, 'm.', MarkerSize=12);
-            
-            graph_text = sprintf("Min Gain Margin = %0.2f dB\nMin Phase Margin = %0.1f deg", minGm, minPm);
-            text(ax, 0.5, -0.25, graph_text);
+            % [Gm, Pm, Wcg, Wcp] = cellfun(@margin, sensitivity);
+            % sensitivity = cellfun(@ss, sensitivity, UniformOutput=false);
+            % Gm = squeeze(reshape(Gm, 1, []));
+            % 
+            % [minGm, minGmI] = min(abs(mag2db(Gm)));
+            % freq = Wcg(minGmI);
+            % 
+            % corosponing_sens = sensitivity(minGmI);
+            % H = freqresp(corosponing_sens{:}, freq);
+            % X = real(H);
+            % Y = imag(H);
+            % 
+            % plot(ax, X, Y, 'g.', MarkerSize=12);
+            % 
+            % % Plot the lowest phase margin
+            % Pm = squeeze(reshape(Pm, 1, []));
+            % 
+            % [minPm, minPmI] = min(abs(Pm));
+            % freq = Wcp(minPmI);
+            % 
+            % corosponing_sens = sensitivity(minPmI);
+            % H = freqresp(corosponing_sens{:}, freq);
+            % X = real(H);
+            % Y = imag(H);
+            % 
+            % plot(ax, X, Y, 'm.', MarkerSize=12);
+            % 
+            % graph_text = sprintf("Min Gain Margin = %0.2f dB\nMin Phase Margin = %0.1f deg", minGm, minPm);
+            % text(ax, 0.5, -0.25, graph_text);
 
             hold off
             grid(ax, 'on');
         end
 
         function my_gain_margin_plot(obj, ax, location)
-            wrap_get_senitivity = @(st)getSensitivity(st, location);
-            sensitivity = arrayfun(wrap_get_senitivity, obj.sltuner_objs, UniformOutput=false);
-
-            [Gm, ~, ~, ~] = cellfun(@margin, sensitivity);
-            Gm = abs(mag2db(Gm));
+            temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
+            ap_dim = size(temp_loop_transfer, 1);
             
-            surf(ax, Gm);
+            for i=1:ap_dim
+                sub_location = location + sprintf("(%i)", i);
+                wrap_get_LoopTransfer = @(st)getLoopTransfer(st, sub_location, -1);
+                loop_transfer{i} = arrayfun(wrap_get_LoopTransfer, obj.sltuner_objs, UniformOutput=false);
+
+                [Gm(i, :, :), ~, ~, ~] = cellfun(@margin, loop_transfer{i});
+                Gm(i, :, :) = abs(mag2db(Gm(i, :, :)));
+            end
+            
+            min_Gm = min(Gm, [], 1);
+            min_Gm = squeeze(min_Gm);
+            surf(ax, min_Gm);
 
             xlabel(ax, "Altitude [m]");
             ylabel(ax, "Mach []");
@@ -116,12 +131,20 @@ classdef OpenLoopAnalysis
         end
 
         function my_phase_margin_plot(obj, ax, location)
-            wrap_get_senitivity = @(st)getSensitivity(st, location);
-            sensitivity = arrayfun(wrap_get_senitivity, obj.sltuner_objs, UniformOutput=false);
+            temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
+            ap_dim = size(temp_loop_transfer, 1);
+            
+            for i=1:ap_dim
+                sub_location = location + sprintf("(%i)", i);
+                wrap_get_LoopTransfer = @(st)getLoopTransfer(st, sub_location, -1);
+                loop_transfer{i} = arrayfun(wrap_get_LoopTransfer, obj.sltuner_objs, UniformOutput=false);
 
-            [~, Pm, ~, ~] = cellfun(@margin, sensitivity);
-            Pm = abs(Pm);
-            surf(ax, Pm);
+                [~, Pm(i, :, :), ~, ~] = cellfun(@margin, loop_transfer{i});
+                Pm(i, :, :) = abs(Pm(i, :, :));
+            end
+            min_Pm = min(Pm, [], 1);
+            min_Pm = squeeze(min_Pm);
+            surf(ax, min_Pm);
             
             xlabel(ax, "Altitude [m]");
             ylabel(ax, "Mach []");
@@ -132,12 +155,16 @@ classdef OpenLoopAnalysis
 
     methods(Static)
         function plot_nyquist(ax, system)
-            [re, im] = nyquist(system);
-            re = squeeze(re);
-            im = squeeze(im);
-
-            plot(ax, re, im, 'b');
-            hold on
+            for i =1:size(system, 1)
+                for j=1:size(system, 2)
+                    [re, im, wout] = nyquist(system(:, :, i, j));
+                    temp_re = squeeze(re);
+                    temp_im = squeeze(im);
+                    plot(ax, temp_re, temp_im, 'b');
+                    plot(ax, temp_re, -temp_im, 'b');
+                    hold on
+                end
+            end
         end
 
         function [xp, yp] = circle(x,y,r)

@@ -11,7 +11,8 @@ classdef ClosedLoopResponse
 
     properties(Constant)
         g = 9.80665;
-        t = -0.5:0.05:5;
+        g_imperial = 32.174;
+        t = -0.5:0.001:4;
     end
     
     methods
@@ -31,15 +32,20 @@ classdef ClosedLoopResponse
             % 9g pull up
             
             ax1 = nexttile;
-            plot_pull_up(obj, ax1);
+            obj.plot_pull_up(ax1);
             
-            % 2. Plot the elevon deflection in degrees with a relevant step
+            % 2. Plot the input deflection in degrees with a relevant step
             % at the input
 
             ax2 = nexttile;
-            plot_elevon_deflection(obj, ax2);
+            obj.plot_elevon_deflection(ax2);
 
             % 3. Plot CAP graph to show complience with the requirements
+            wrap_get_response = @(tuner_obj)obj.get_tf(tuner_obj, obj.reference_ap, obj.system_output_ap);
+            response_tf = arrayfun(wrap_get_response, obj.sltuner_objs, UniformOutput=false);
+            ax3 = nexttile;
+            obj.plot_cap(ax3, response_tf);
+
 
         end
 
@@ -47,8 +53,6 @@ classdef ClosedLoopResponse
             wrap_get_response = @(tuner_obj)obj.get_tf(tuner_obj, obj.reference_ap, obj.system_output_ap);
             response_tf = arrayfun(wrap_get_response, obj.sltuner_objs, UniformOutput=false);
             
-
-
             laod_factor_to_q = @(sys)obj.convert_to_load_q(sys, 9);
             required_q = cellfun(laod_factor_to_q, response_tf);
             
@@ -99,10 +103,24 @@ classdef ClosedLoopResponse
             yline(ax, -30, 'black--', LineWidth=2);
 
         end
+        
+
 
     end
 
     methods(Static)
+        
+        function ax = plot_cap(ax, response_tf)
+            LOES = cellfun(@modelOrderReduction, response_tf, UniformOutput=false);
+            
+            zpk_loes = cellfun(@zpk, LOES, UniformOutput=false);
+
+            [CAP, n_alpha, omega_sp, zeta_sp, t_theta_2] = cellfun(@ClosedLoopResponse.get_cap_param, zpk_loes);
+
+            shortPeriodCategoryAPlot(ax, n_alpha, omega_sp, "bo");
+
+        end
+
         function q = pitch_rate(velocity, load_factor)
             q = ClosedLoopResponse.g / velocity * (load_factor - 1);
         end
@@ -123,7 +141,11 @@ classdef ClosedLoopResponse
         end
 
         function plot_time_response(ax, response, t)
-            plot(ax, t, response, 'b');
+            colors = {'b', 'r', 'g'};
+            for i=1:size(response, 2)
+                plot(ax, t, response(:, i), colors{i});
+            end
+            
             hold on
         end
 
@@ -131,7 +153,27 @@ classdef ClosedLoopResponse
             u = zeros(size(t));
             u(t>=0) = req_q;
         end
+        
+        function [CAP, n_alpha, omega_sp, zeta_sp, t_theta_2] = get_cap_param(loes_zpk)
+            t_theta_2 = -1 / loes_zpk.Z{1};
+            [omega_sp, zeta_sp] = damp(loes_zpk);
+             
+            if(omega_sp(1) ~= omega_sp(2))
+                warning("Omega does not equal each other")
+            end
 
+            omega_sp = omega_sp(1);
+            zeta_sp = zeta_sp(1);
+
+
+            grid_point = loes_zpk.SamplingGrid;
+            [~, a, ~, ~, ~] = atmosisa(grid_point.altitude);
+            velocity = a * grid_point.mach;
+
+            n_alpha = (velocity/ClosedLoopResponse.g) * (1/t_theta_2);
+            CAP = omega_sp.^2 / n_alpha;
+
+        end
     end
 end
 
