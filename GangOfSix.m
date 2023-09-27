@@ -29,26 +29,27 @@ classdef GangOfSix
         
         function plot(obj)
             fig = figure();
-            t = tiledlayout(fig, 2, 3);
-            t.TileSpacing = 'compact';
+            %t = tiledlayout(fig, 2, 3); $ Tiledlayout does not work with
+            %sigma plot
+            %t.TileSpacing = 'compact';
 
             % So plot
-            ax1 = nexttile;
+            ax1 = subplot(2, 3, 1);
             plot_So(obj, ax1);
 
-            ax2 = nexttile;
+            ax2 = subplot(2, 3, 2);
             plot_KSo(obj, ax2);
 
-            ax3 = nexttile;
+            ax3 = subplot(2, 3, 3);
             plot_To(obj, ax3);
 
-            ax4 = nexttile;
+            ax4 = subplot(2, 3, 4);
             plot_SoG(obj, ax4);
 
-            ax5 = nexttile;
+            ax5 = subplot(2, 3, 5);
             plot_KSoF(obj, ax5);
 
-            ax6 = nexttile;
+            ax6 = subplot(2, 3, 6);
             plot_ToF(obj, ax6);
             
 
@@ -112,13 +113,18 @@ classdef GangOfSix
  
     methods(Static)
         function ax = plot_tf(ax, tfs)
-            wrap_freqresp = @(sys)sigma(sys, GangOfSix.freq_to_plot);
-            H = cellfun(wrap_freqresp, tfs, UniformOutput=false);
+            hold on
+            wrap_sigma_plot = @(sys)sigmaplot(ax, genss(sys));
+            cellfun(wrap_sigma_plot, tfs);
+            hold off
             
-            H = squeeze(vertcat(H{:}));
-            H = mag2db(H);
-            semilogx(ax, GangOfSix.freq_to_plot, H, 'b');
-            
+            % wrap_freqresp = @(sys)sigma(genss(sys), GangOfSix.freq_to_plot);
+            % H = cellfun(wrap_freqresp, tfs, UniformOutput=false);
+            % 
+            % H = squeeze(vertcat(H{:}));
+            % H = mag2db(H);
+            % semilogx(ax, GangOfSix.freq_to_plot, H, 'b');
+            % 
            
         end
 
