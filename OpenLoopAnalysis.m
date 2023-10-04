@@ -7,6 +7,10 @@ classdef OpenLoopAnalysis
         plant_input_ap (1, 1) string
         plant_output_ap (1, 1) string
     end
+
+    properties(Constant)
+        freq_to_plot = logspace(-2, 3, 100);
+    end
     
     methods
         function obj = OpenLoopAnalysis(st, pi, po)
@@ -17,7 +21,7 @@ classdef OpenLoopAnalysis
         
         function plot(obj)
             fig = figure();
-            t = tiledlayout(fig, 2, 3);
+            t = tiledlayout(fig, 2, 4);
             t.TileSpacing = 'compact';
 
             % 1. Nyquist plot at the plant input
@@ -33,21 +37,29 @@ classdef OpenLoopAnalysis
             ax3 = nexttile;
             obj.my_phase_margin_plot(ax3, obj.plant_input_ap);
             title(ax3, "Phase Margin @ Plant Input");
+            
+            ax4 = nexttile;
+            obj.loop_gain(ax4, obj.plant_input_ap);
+            title(ax4, "Input Loop Transfer Function");
 
             % 4. Nyquist plot at the plant output
-            ax4 = nexttile;
-            obj.my_nyquist_plot(ax4, obj.plant_output_ap);
-            title(ax4, "Nyquist Plot @ Plant Output");
+            ax5 = nexttile;
+            obj.my_nyquist_plot(ax5, obj.plant_output_ap);
+            title(ax5, "Nyquist Plot @ Plant Output");
 
             % 5. Plot the minimum gain margin at plant output
-            ax5 = nexttile;
-            obj.my_gain_margin_plot(ax5, obj.plant_output_ap);
-            title(ax5, "Gain Margin @ Plant Output");
+            ax6 = nexttile;
+            obj.my_gain_margin_plot(ax6, obj.plant_output_ap);
+            title(ax6, "Gain Margin @ Plant Output");
 
             % 6. Plot the minimum phase margin at plant output
-            ax6 = nexttile;
-            obj.my_phase_margin_plot(ax6, obj.plant_output_ap);
-            title(ax6, "Phase Margin @ Plant Output");
+            ax7 = nexttile;
+            obj.my_phase_margin_plot(ax7, obj.plant_output_ap);
+            title(ax7, "Phase Margin @ Plant Output");
+
+            ax8 = nexttile;
+            obj.loop_gain(ax8, obj.plant_input_ap);
+            title(ax8, "Output Loop Transfer Function");
 
         end
 
@@ -151,7 +163,21 @@ classdef OpenLoopAnalysis
             zlabel(ax, "Phase Margin [deg]");
 
         end
+    
+        function loop_gain(obj, ax, location)
+            temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
+            ap_dim = size(temp_loop_transfer, 1);
+
+            for i=1:ap_dim
+                sub_location = location + sprintf("(%i)", i);
+                wrap_get_LoopTransfer = @(st)getLoopTransfer(st, sub_location, -1);
+                loop_transfer{i} = arrayfun(wrap_get_LoopTransfer, obj.sltuner_objs, UniformOutput=false);
+                obj.plot_tf(ax, loop_transfer{i});
+            end
+        end
     end
+
+
 
     methods(Static)
         function plot_nyquist(ax, system)
@@ -176,6 +202,15 @@ classdef OpenLoopAnalysis
             xp=r*cos(ang) + x;
             yp=r*sin(ang) + y;
         end
+
+        function ax = plot_tf(ax, tfs)            
+            wrap_freqresp = @(sys)sigma(sys, GangOfSix.freq_to_plot);
+            H = cellfun(wrap_freqresp, tfs, UniformOutput=false);
+
+            H = squeeze(vertcat(H{:}));
+            H = mag2db(H);
+            semilogx(ax, GangOfSix.freq_to_plot, H, 'b');
+        end 
     end 
 end
 
