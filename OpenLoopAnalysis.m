@@ -30,13 +30,13 @@ classdef OpenLoopAnalysis
             title(ax1, "Nyquist Plot @ Plant Input");
             % 2. Plot the minimum gain margin at plant input
             ax2 = nexttile; 
-            obj.my_gain_margin_plot(ax2, obj.plant_input_ap);
-            title(ax2, "Gain Margin @ Plant Input");
+            obj.my_disk_gain_margin_plot(ax2, obj.plant_input_ap);
+            title(ax2, "Min Disk Gain Margin @ Plant Input");
 
             % 3. Plot the minimum phase margin at plant input
             ax3 = nexttile;
-            obj.my_phase_margin_plot(ax3, obj.plant_input_ap);
-            title(ax3, "Phase Margin @ Plant Input");
+            obj.my_disk_phase_margin_plot(ax3, obj.plant_input_ap);
+            title(ax3, "Min Disk Phase Margin @ Plant Input");
             
             ax4 = nexttile;
             obj.loop_gain(ax4, obj.plant_input_ap);
@@ -49,19 +49,43 @@ classdef OpenLoopAnalysis
 
             % 5. Plot the minimum gain margin at plant output
             ax6 = nexttile;
-            obj.my_gain_margin_plot(ax6, obj.plant_output_ap);
-            title(ax6, "Gain Margin @ Plant Output");
+            obj.my_disk_gain_margin_plot(ax6, obj.plant_output_ap);
+            title(ax6, "Min Disk Gain Margin @ Plant Output");
 
             % 6. Plot the minimum phase margin at plant output
             ax7 = nexttile;
-            obj.my_phase_margin_plot(ax7, obj.plant_output_ap);
-            title(ax7, "Phase Margin @ Plant Output");
+            obj.my_disk_phase_margin_plot(ax7, obj.plant_output_ap);
+            title(ax7, "Min Disk Phase Margin @ Plant Output");
 
             ax8 = nexttile;
             obj.loop_gain(ax8, obj.plant_input_ap);
             title(ax8, "Output Loop Transfer Function");
 
         end
+
+        function plot_margins(obj)
+             fig = figure();
+            t = tiledlayout(fig, 2, 2);
+            t.TileSpacing = 'compact';
+
+            ax1 = nexttile;
+            obj.my_gain_margin_plot(ax1, obj.plant_input_ap);
+            title(ax1, "Min Gain Margin @ Plant Input");
+            
+            ax2 = nexttile; 
+            obj.my_disk_gain_margin_plot(ax2, obj.plant_input_ap);
+            title(ax2, "Min Disk Gain Margin @ Plant Input");
+
+            ax3 = nexttile;
+            obj.my_phase_margin_plot(ax3, obj.plant_input_ap);
+            title(ax3, "Min Phase Margin @ Plant Input");
+
+            ax4 = nexttile;
+            obj.my_disk_phase_margin_plot(ax4, obj.plant_input_ap);
+            title(ax4, "Min Disk Phase Margin @ Plant Input");
+        end
+
+
 
         function my_nyquist_plot(obj, ax, location)
             % Solve for the size of the analysis point
@@ -163,7 +187,65 @@ classdef OpenLoopAnalysis
             zlabel(ax, "Phase Margin [deg]");
 
         end
-    
+        
+        function my_disk_gain_margin_plot(obj, ax, location)
+                        temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
+            ap_dim = size(temp_loop_transfer, 1);
+            
+            for i=1:ap_dim
+                sub_location = location + sprintf("(%i)", i);
+                wrap_get_LoopTransfer = @(st)getLoopTransfer(st, sub_location, -1);
+                loop_transfer{i} = arrayfun(wrap_get_LoopTransfer, obj.sltuner_objs, UniformOutput=false);
+
+                [DM(i, :, :), MM(i, :, :)] = cellfun(@diskmargin, loop_transfer{i});
+            end
+            
+            GM = arrayfun(@(st)st.GainMargin, DM,UniformOutput=false);
+            GM = cellfun(@(element)min(abs(mag2db(element))), GM);
+            GM = min(GM, [], 1);
+            GM = squeeze(GM);
+
+            % Get the sampling grid points
+            domain = cellfun(@(x)x.SamplingGrid, loop_transfer{1});
+            alt_grid = arrayfun(@(x)x.altitude, domain);
+            mach_grid = arrayfun(@(x)x.mach, domain);
+
+            surf(ax, alt_grid, mach_grid, GM);
+
+            xlabel(ax, "Altitude [m]");
+            ylabel(ax, "Mach []");
+            zlabel(ax, "Gain Margin [dB]");
+        end
+
+        function my_disk_phase_margin_plot(obj, ax, location)
+            temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
+            ap_dim = size(temp_loop_transfer, 1);
+            
+            for i=1:ap_dim
+                sub_location = location + sprintf("(%i)", i);
+                wrap_get_LoopTransfer = @(st)getLoopTransfer(st, sub_location, -1);
+                loop_transfer{i} = arrayfun(wrap_get_LoopTransfer, obj.sltuner_objs, UniformOutput=false);
+
+                [DM(i, :, :), MM(i, :, :)] = cellfun(@diskmargin, loop_transfer{i});
+            end
+            
+            PM = arrayfun(@(st)st.PhaseMargin, DM,UniformOutput=false);
+            PM = cellfun(@(element)min(abs(element)), PM);
+            PM = min(PM, [], 1);
+            PM = squeeze(PM);
+            
+            % Get the sampling grid points
+            domain = cellfun(@(x)x.SamplingGrid, loop_transfer{1});
+            alt_grid = arrayfun(@(x)x.altitude, domain);
+            mach_grid = arrayfun(@(x)x.mach, domain);
+
+            surf(ax, alt_grid, mach_grid, PM);
+            
+            xlabel(ax, "Altitude [m]");
+            ylabel(ax, "Mach []");
+            zlabel(ax, "Phase Margin [deg]");
+        end
+
         function loop_gain(obj, ax, location)
             temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
             ap_dim = size(temp_loop_transfer, 1);
@@ -174,6 +256,7 @@ classdef OpenLoopAnalysis
                 loop_transfer{i} = arrayfun(wrap_get_LoopTransfer, obj.sltuner_objs, UniformOutput=false);
                 obj.plot_tf(ax, loop_transfer{i});
             end
+            grid on
         end
     end
 

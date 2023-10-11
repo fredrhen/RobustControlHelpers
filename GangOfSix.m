@@ -113,18 +113,19 @@ classdef GangOfSix
  
     methods(Static)
         function ax = plot_tf(ax, tfs)
-            % hold on
-            % wrap_sigma_plot = @(sys)sigmaplot(ax, genss(sys));
-            % cellfun(wrap_sigma_plot, tfs);
-            % hold off
-            
+
+            multimodel = ndims(tfs{1}) > 2;
+
+            if multimodel
+                tfs = multiModel2Cell(tfs{1});
+            end
+
             wrap_freqresp = @(sys)sigma(genss(sys), GangOfSix.freq_to_plot);
             H = cellfun(wrap_freqresp, tfs, UniformOutput=false);
-
+    
             H = squeeze(vertcat(H{:}));
             H = mag2db(H);
             semilogx(ax, GangOfSix.freq_to_plot, H, 'b');
-
            
         end
 

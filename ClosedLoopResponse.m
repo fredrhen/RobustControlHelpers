@@ -3,10 +3,8 @@ classdef ClosedLoopResponse
     %   Detailed explanation goes here
     
     properties
-        sltuner_objs slTuner
-        reference_ap (1, 1) string
-        plant_input_ap (1, 1) string
-        system_output_ap (1, 1) string
+        ref_to_output 
+        ref_to_plant_input
     end
 
     properties(Constant)
@@ -17,15 +15,24 @@ classdef ClosedLoopResponse
     
     methods
         function obj = ClosedLoopResponse(st, r, pi, so)
-            obj.sltuner_objs = st;
-            obj.reference_ap = r;
-            obj.plant_input_ap = pi;
-            obj.system_output_ap = so;
+            if nargin == 4
+                wrap_ref_to_output = @(tuner_obj)obj.get_tf(tuner_obj, r, so);
+                ref_to_output = arrayfun(wrap_ref_to_output, st, UniformOutput=false);
+        
+                wrap_ref_to_plant_input = @(tuner_obj)obj.get_tf(tuner_obj, r, pi);
+                ref_to_plant_input = arrayfun(wrap_ref_to_plant_input, st, UniformOutput=false);
+                
+                obj.ref_to_output = cell2MultiModel(ref_to_output);
+                obj.ref_to_plant_input = cell2MultiModel(ref_to_plant_input);
+            else
+                obj.ref_to_output = ss();
+                obj.ref_to_plant_input = ss();
+            end
         end
         
         function plot(obj)
             fig = figure();
-            t = tiledlayout(fig, 1, 3);
+            t = tiledlayout(fig, 2, 2);
             t.TileSpacing = 'compact';
 
             % 1.Plot the step response of all the closed loop systems for a
@@ -40,27 +47,29 @@ classdef ClosedLoopResponse
             ax2 = nexttile;
             obj.plot_elevon_deflection(ax2);
 
-            % 3. Plot CAP graph to show complience with the requirements
-            wrap_get_response = @(tuner_obj)obj.get_tf(tuner_obj, obj.reference_ap, obj.system_output_ap);
-            response_tf = arrayfun(wrap_get_response, obj.sltuner_objs, UniformOutput=false);
             ax3 = nexttile;
-            obj.plot_cap(ax3, response_tf);
+            obj.plot_elevon_deflection_rate(ax3);
+
+
+
+            % 3. Plot CAP graph to show complience with the requirements
+            response_tf = multiModel2Cell(obj.ref_to_output);
+            ax4 = nexttile;
+            obj.plot_cap(ax4, response_tf);
 
 
         end
 
         function ax = plot_pull_up(obj, ax)
-            wrap_get_response = @(tuner_obj)obj.get_tf(tuner_obj, obj.reference_ap, obj.system_output_ap);
-            response_tf = arrayfun(wrap_get_response, obj.sltuner_objs, UniformOutput=false);
-            
-            laod_factor_to_q = @(sys)obj.convert_to_load_q(sys, 9);
-            required_q = cellfun(laod_factor_to_q, response_tf);
-            
+            required_q = obj.convert_to_load_q(obj.ref_to_output, 9);
+
             wrap_gen_input = @(req_q)obj.gen_input(obj.t, req_q);
             u = arrayfun(wrap_gen_input, required_q, UniformOutput=false);
-
+            
+            ref_to_output_cell = multiModel2Cell(obj.ref_to_output);
+            u = cell(u);
             wrap_lsim = @(sys, u)lsim(sys, u, obj.t);
-            time_response = cellfun(wrap_lsim, response_tf, u, UniformOutput=false);
+            time_response = cellfun(wrap_lsim, ref_to_output_cell, u, UniformOutput=false);
             
             wrap_plot = @(response)obj.plot_time_response(ax, response, obj.t);
             cellfun(wrap_plot, time_response);
@@ -73,17 +82,16 @@ classdef ClosedLoopResponse
         end
 
         function ax = plot_elevon_deflection(obj, ax)
-            wrap_get_response = @(tuner_obj)obj.get_tf(tuner_obj, obj.reference_ap, obj.plant_input_ap);
-            response_tf = arrayfun(wrap_get_response, obj.sltuner_objs, UniformOutput=false);
-
-            laod_factor_to_q = @(sys)obj.convert_to_load_q(sys, 9);
-            required_q = cellfun(laod_factor_to_q, response_tf);
+            required_q = obj.convert_to_load_q(obj.ref_to_plant_input, 9);
             
             wrap_gen_input = @(req_q)obj.gen_input(obj.t, req_q);
             u = arrayfun(wrap_gen_input, required_q, UniformOutput=false);
+            u = cell(u);
+            
+            ref_to_input_cell = multiModel2Cell(obj.ref_to_plant_input);
 
             wrap_lsim = @(sys, u)lsim(sys, u, obj.t);
-            time_response = cellfun(wrap_lsim, response_tf, u, UniformOutput=false);
+            time_response = cellfun(wrap_lsim, ref_to_input_cell, u, UniformOutput=false);
             
             time_response_deg = cellfun(@rad2deg, time_response, UniformOutput=false);
 
@@ -96,11 +104,45 @@ classdef ClosedLoopResponse
 
             title(ax, "Commanded Elevon deflection with n=9");
             xlabel(ax, "Time [s]");
-            ylabel(ax, "Commanded Elevon deflection [rad]");
+            ylabel(ax, "Commanded Elevon deflection [deg]");
 
             % Add limits on deflections
             yline(ax, 25, 'black--', LineWidth=2);
             yline(ax, -30, 'black--', LineWidth=2);
+
+        end
+
+        function ax = plot_elevon_deflection_rate(obj, ax)
+            required_q = obj.convert_to_load_q(obj.ref_to_plant_input, 9);
+            
+            wrap_gen_input = @(req_q)obj.gen_input(obj.t, req_q);
+            u = arrayfun(wrap_gen_input, required_q, UniformOutput=false);
+            u = cell(u);
+           
+            s = tf('s');
+            ref_to_input_rate = obj.ref_to_plant_input * s;
+
+            ref_to_input_cell = multiModel2Cell(ref_to_input_rate);
+            
+            wrap_lsim = @(sys, u)lsim(sys, u, obj.t);
+            time_response = cellfun(wrap_lsim, ref_to_input_cell, u, UniformOutput=false);
+            
+            time_response_deg = cellfun(@rad2deg, time_response, UniformOutput=false);
+
+
+            wrap_plot = @(response)obj.plot_time_response(ax, response, obj.t);
+            cellfun(wrap_plot, time_response_deg);
+            hold off
+            grid(ax, "on");
+
+
+            title(ax, "Commanded Elevon deflection with n=9");
+            xlabel(ax, "Time [s]");
+            ylabel(ax, "Commanded Elevon deflection rate [deg/s]");
+
+            % Add limits on deflections
+            yline(ax, 50, 'black--', LineWidth=2);
+            yline(ax, -50, 'black--', LineWidth=2);
 
         end
         
@@ -122,14 +164,14 @@ classdef ClosedLoopResponse
         end
 
         function q = pitch_rate(velocity, load_factor)
-            q = ClosedLoopResponse.g / velocity * (load_factor - 1);
+            q = ClosedLoopResponse.g ./ velocity .* (load_factor - 1);
         end
 
         function q = convert_to_load_q(sys, load_factor)
             grid_point = sys.SamplingGrid;
             
             [~, a, ~, ~, ~] = atmosisa(grid_point.altitude);
-            velocity = a * grid_point.mach;
+            velocity = a .* grid_point.mach;
             
             q = ClosedLoopResponse.pitch_rate(velocity, load_factor);
 
@@ -160,9 +202,9 @@ classdef ClosedLoopResponse
              
             if(omega_sp(1) ~= omega_sp(2))
                 warning("Omega does not equal each other")
+            else
+               omega_sp = omega_sp(1); 
             end
-
-            omega_sp = omega_sp(1);
             zeta_sp = zeta_sp(1);
 
 
