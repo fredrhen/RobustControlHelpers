@@ -10,7 +10,7 @@ classdef ClosedLoopResponse
     properties(Constant)
         g = 9.80665;
         g_imperial = 32.174;
-        t = -0.5:0.001:4;
+        t = -0.5:0.01:8;
     end
     
     methods
@@ -53,18 +53,22 @@ classdef ClosedLoopResponse
 
 
             % 3. Plot CAP graph to show complience with the requirements
-            response_tf = multiModel2Cell(obj.ref_to_output);
-            ax4 = nexttile;
-            obj.plot_cap(ax4, response_tf);
+            try 
+                response_tf = multiModel2Cell(obj.ref_to_output);
+                ax4 = nexttile;
+                obj.plot_cap(ax4, response_tf);
+            end
 
 
         end
 
         function ax = plot_pull_up(obj, ax)
             required_q = obj.convert_to_load_q(obj.ref_to_output, 9);
+            
+            one_array = ones(size(required_q));
 
             wrap_gen_input = @(req_q)obj.gen_input(obj.t, req_q);
-            u = arrayfun(wrap_gen_input, required_q, UniformOutput=false);
+            u = arrayfun(wrap_gen_input, one_array, UniformOutput=false);
             
             ref_to_output_cell = multiModel2Cell(obj.ref_to_output);
             u = cell(u);

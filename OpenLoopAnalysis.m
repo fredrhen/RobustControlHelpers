@@ -189,15 +189,16 @@ classdef OpenLoopAnalysis
         end
         
         function my_disk_gain_margin_plot(obj, ax, location)
-                        temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
+            temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
             ap_dim = size(temp_loop_transfer, 1);
             
             for i=1:ap_dim
                 sub_location = location + sprintf("(%i)", i);
                 wrap_get_LoopTransfer = @(st)getLoopTransfer(st, sub_location, -1);
                 loop_transfer{i} = arrayfun(wrap_get_LoopTransfer, obj.sltuner_objs, UniformOutput=false);
-
+                
                 [DM(i, :, :), MM(i, :, :)] = cellfun(@diskmargin, loop_transfer{i});
+               
             end
             
             GM = arrayfun(@(st)st.GainMargin, DM,UniformOutput=false);
