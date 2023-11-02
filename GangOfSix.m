@@ -83,7 +83,7 @@ classdef GangOfSix
         end
 
         function ax = plot_SoG(obj, ax)
-            wrap_get_SoG = @(tuner_obj)obj.get_tf(tuner_obj, obj.disturbance_input_ap, obj.system_output_ap, -1);
+            wrap_get_SoG = @(tuner_obj)obj.get_tf(tuner_obj, obj.disturbance_input_ap, obj.system_output_ap, 1);
             So = arrayfun(wrap_get_SoG, obj.sltuner_objs, UniformOutput=false);
             
             ax = obj.plot_tf(ax, So);
