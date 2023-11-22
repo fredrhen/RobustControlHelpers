@@ -53,11 +53,11 @@ classdef ClosedLoopResponse
 
 
             % 3. Plot CAP graph to show complience with the requirements
-            try 
-                response_tf = multiModel2Cell(obj.ref_to_output);
-                ax4 = nexttile;
-                obj.plot_cap(ax4, response_tf);
-            end
+
+            response_tf = multiModel2Cell(obj.ref_to_output);
+            ax4 = nexttile;
+            obj.plot_cap(ax4, response_tf);
+
 
 
         end
@@ -157,6 +157,8 @@ classdef ClosedLoopResponse
     methods(Static)
         
         function ax = plot_cap(ax, response_tf)
+            response_tf = cellfun(@ss, response_tf, UniformOutput=false);
+    
             LOES = cellfun(@modelOrderReduction, response_tf, UniformOutput=false);
             
             zpk_loes = cellfun(@zpk, LOES, UniformOutput=false);
@@ -201,14 +203,14 @@ classdef ClosedLoopResponse
         end
         
         function [CAP, n_alpha, omega_sp, zeta_sp, t_theta_2] = get_cap_param(loes_zpk)
-            t_theta_2 = -1 / loes_zpk.Z{1};
+            t_theta_2 = -1 ./ loes_zpk.Z{1};
             [omega_sp, zeta_sp] = damp(loes_zpk);
              
             if(omega_sp(1) ~= omega_sp(2))
                 warning("Omega does not equal each other")
-            else
-               omega_sp = omega_sp(1); 
             end
+
+            omega_sp = omega_sp(1); 
             zeta_sp = zeta_sp(1);
 
 
@@ -216,7 +218,7 @@ classdef ClosedLoopResponse
             [~, a, ~, ~, ~] = atmosisa(grid_point.altitude);
             velocity = a * grid_point.mach;
 
-            n_alpha = (velocity/ClosedLoopResponse.g) * (1/t_theta_2);
+            n_alpha = (velocity/ClosedLoopResponse.g) * (1./t_theta_2);
             CAP = omega_sp.^2 / n_alpha;
 
         end

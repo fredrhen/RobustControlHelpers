@@ -147,6 +147,7 @@ classdef OpenLoopAnalysis
         function my_gain_margin_plot(obj, ax, location)
             temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
             ap_dim = size(temp_loop_transfer, 1);
+            domain = temp_loop_transfer.SamplingGrid;
             
             for i=1:ap_dim
                 sub_location = location + sprintf("(%i)", i);
@@ -156,10 +157,20 @@ classdef OpenLoopAnalysis
                 [Gm(i, :, :), ~, ~, ~] = cellfun(@margin, loop_transfer{i});
                 Gm(i, :, :) = abs(mag2db(Gm(i, :, :)));
             end
+
+            wrap_get_domain = @(lt)lt.SamplingGrid;
+
+            domain = cellfun(wrap_get_domain, loop_transfer{1});
+
+            altitude = [domain.altitude];
+            mach = [domain.mach];
             
+            altitude = reshape(altitude, size(obj.sltuner_objs));
+            mach = reshape(mach, size(obj.sltuner_objs));
+
             min_Gm = min(Gm, [], 1);
             min_Gm = squeeze(min_Gm);
-            surf(ax, min_Gm);
+            surf(altitude, mach, min_Gm);
 
             xlabel(ax, "Altitude [m]");
             ylabel(ax, "Mach []");
@@ -259,6 +270,39 @@ classdef OpenLoopAnalysis
             end
             grid on
         end
+    
+        function my_nichols_plot(obj, ax, location)
+            temp_loop_transfer = getLoopTransfer(obj.sltuner_objs(1), location, -1);
+            ap_dim = size(temp_loop_transfer, 1);
+            
+            for i=1:ap_dim
+                sub_location = location + sprintf("(%i)", i);
+                wrap_get_LoopTransfer = @(st)getLoopTransfer(st, sub_location, -1);
+                loop_transfer{i} = arrayfun(wrap_get_LoopTransfer, obj.sltuner_objs, UniformOutput=false);
+
+                wrap_plot_nichols = @(sys)obj.plot_nichols(ax, sys);
+                cellfun(wrap_plot_nichols, loop_transfer{i}, UniformOutput=false);
+            end
+
+            % Plot the exlusion zone
+            exclusion = polyshape([-145, -180, -180, -145], [3, 6, -6, -3]);
+            
+            exclusion_plot = plot(ax, exclusion);
+            exclusion_plot.FaceAlpha = 0;
+            xlim(ax, [-200 -100]);
+            ylim(ax, [-10, 10]);
+
+            grid(ax, 'on');
+            
+            txt = {'Nichols' 'Exclusion'};
+            t = text(ax, -163, 0, txt, HorizontalAlignment="center");
+            t.FontSize = 14;
+
+            ylabel(ax, "Gain [dB]");
+            xlabel(ax, "Phase [deg]");
+
+        end
+
     end
 
 
@@ -267,11 +311,23 @@ classdef OpenLoopAnalysis
         function plot_nyquist(ax, system)
             for i =1:size(system, 1)
                 for j=1:size(system, 2)
-                    [re, im, wout] = nyquist(system(:, :, i, j));
+                    [re, im, ~] = nyquist(system(:, :, i, j));
                     temp_re = squeeze(re);
                     temp_im = squeeze(im);
                     plot(ax, temp_re, temp_im, 'b');
                     plot(ax, temp_re, -temp_im, 'b');
+                    hold on
+                end
+            end
+        end
+
+        function plot_nichols(ax, system)
+            for i =1:size(system, 1)
+                for j=1:size(system, 2)
+                    [mag, phase, ~] = nichols(system(:, :, i, j));
+                    temp_mag = squeeze(mag);
+                    temp_phase = squeeze(phase);
+                    plot(ax, temp_phase, mag2db(temp_mag), 'b');
                     hold on
                 end
             end
