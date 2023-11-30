@@ -56,9 +56,43 @@ classdef ClosedLoopResponse
 
             response_tf = multiModel2Cell(obj.ref_to_output);
             ax4 = nexttile;
-            obj.plot_cap(ax4, response_tf);
+            response_tf = cellfun(@ss, response_tf, UniformOutput=false);
+            [LOES, results] = cellfun(@loes_gen, response_tf, UniformOutput=false);
+            results = cell2mat(results);
+                
+            loes = cell2MultiModel(LOES);
+        
+            omega_sp = arrayfun(@(r)r.omega_sp, results);
+            response_tf = cell2MultiModel(response_tf);
+            
+            grid_point = response_tf.SamplingGrid;
+            [~, a, ~, ~, ~] = atmosisa(grid_point.altitude);
+            velocity = a .* grid_point.mach;
 
+            n_alpha_fun = @(velocity, results) (velocity/ClosedLoopResponse.g) .* (1./results.t_theta_2);
+            
+            n_alpha = arrayfun(n_alpha_fun, velocity, results);
+            shortPeriodCategoryAPlot(ax4, n_alpha, omega_sp, "level","1");
 
+            % Plot the Magnitude Requirments
+            s = tf('s');
+            mag_upper_bound = (3.16*s^2 + 31.61*s + 22.79) / (s^2 + 27.14*s + 1.84);
+            mag_lower_bound = (0.0955*s^2 + 9.92*s + 2.15) / (s^2 + 11.6*s + 4.96);
+    
+            dif = loes / obj.ref_to_output;
+            figure();
+            bodemag(dif, 'r', mag_lower_bound, 'r--', mag_upper_bound, 'r--', {0.1, 10});
+            legend("Low order equivalent system", "Bounds");
+            grid on
+            % Plot the Phase Requirements
+            
+            phase_upper_bound = (68.89*s^2+1100.12*s-275.22*exp(-0.0059*s)) / (s^2+39.94*s+9.99);
+            phase_lower_bound = (475.32*s^2+184100*s+29456.1*exp(-0.0072*s)) / (s^2+11.66*s+0.0389);
+            figure();
+            h = bodeplot(dif, 'r', phase_lower_bound, 'r--', phase_upper_bound, 'r--', {0.1, 10});
+            setoptions(h,'MagVisible','off');
+            legend("Low order equivalent system", "Bounds");
+            grid on
 
         end
 
@@ -155,19 +189,6 @@ classdef ClosedLoopResponse
     end
 
     methods(Static)
-        
-        function ax = plot_cap(ax, response_tf)
-            response_tf = cellfun(@ss, response_tf, UniformOutput=false);
-    
-            LOES = cellfun(@modelOrderReduction, response_tf, UniformOutput=false);
-            
-            zpk_loes = cellfun(@zpk, LOES, UniformOutput=false);
-
-            [CAP, n_alpha, omega_sp, zeta_sp, t_theta_2] = cellfun(@ClosedLoopResponse.get_cap_param, zpk_loes);
-
-            shortPeriodCategoryAPlot(ax, n_alpha, omega_sp, "bo");
-
-        end
 
         function q = pitch_rate(velocity, load_factor)
             q = ClosedLoopResponse.g ./ velocity .* (load_factor - 1);
@@ -202,26 +223,6 @@ classdef ClosedLoopResponse
             u(t>=0) = req_q;
         end
         
-        function [CAP, n_alpha, omega_sp, zeta_sp, t_theta_2] = get_cap_param(loes_zpk)
-            t_theta_2 = -1 ./ loes_zpk.Z{1};
-            [omega_sp, zeta_sp] = damp(loes_zpk);
-             
-            if(omega_sp(1) ~= omega_sp(2))
-                warning("Omega does not equal each other")
-            end
-
-            omega_sp = omega_sp(1); 
-            zeta_sp = zeta_sp(1);
-
-
-            grid_point = loes_zpk.SamplingGrid;
-            [~, a, ~, ~, ~] = atmosisa(grid_point.altitude);
-            velocity = a * grid_point.mach;
-
-            n_alpha = (velocity/ClosedLoopResponse.g) * (1./t_theta_2);
-            CAP = omega_sp.^2 / n_alpha;
-
-        end
     end
 end
 
