@@ -30,7 +30,7 @@ classdef ClosedLoopResponse
             end
         end
         
-        function plot(obj)
+        function plot(obj, ref_model)
             fig = figure();
             t = tiledlayout(fig, 2, 2);
             t.TileSpacing = 'compact';
@@ -39,7 +39,7 @@ classdef ClosedLoopResponse
             % 9g pull up
             
             ax1 = nexttile;
-            obj.plot_pull_up(ax1);
+            obj.plot_pull_up(ax1, ref_model);
             
             % 2. Plot the input deflection in degrees with a relevant step
             % at the input
@@ -96,7 +96,7 @@ classdef ClosedLoopResponse
 
         end
 
-        function ax = plot_pull_up(obj, ax)
+        function ax = plot_pull_up(obj, ax, ref_model)
             required_q = obj.convert_to_load_q(obj.ref_to_output, 9);
             
             one_array = ones(size(required_q));
@@ -105,12 +105,15 @@ classdef ClosedLoopResponse
             u = arrayfun(wrap_gen_input, one_array, UniformOutput=false);
             
             ref_to_output_cell = multiModel2Cell(obj.ref_to_output);
-            u = cell(u);
+            u_cell = cell(u);
             wrap_lsim = @(sys, u)lsim(sys, u, obj.t);
-            time_response = cellfun(wrap_lsim, ref_to_output_cell, u, UniformOutput=false);
+            time_response = cellfun(wrap_lsim, ref_to_output_cell, u_cell, UniformOutput=false);
             
-            wrap_plot = @(response)obj.plot_time_response(ax, response, obj.t);
+            ref_model_response = lsim(ref_model, u{1}, obj.t);
+
+            wrap_plot = @(response)obj.plot_time_response(ax, response, obj.t, '-b');
             cellfun(wrap_plot, time_response);
+            obj.plot_time_response(ax, ref_model_response, obj.t, '-r')
             hold off
             grid(ax, "on");
 
@@ -134,7 +137,7 @@ classdef ClosedLoopResponse
             time_response_deg = cellfun(@rad2deg, time_response, UniformOutput=false);
 
 
-            wrap_plot = @(response)obj.plot_time_response(ax, response, obj.t);
+            wrap_plot = @(response)obj.plot_time_response(ax, response, obj.t, '-b');
             cellfun(wrap_plot, time_response_deg);
             hold off
             grid(ax, "on");
@@ -168,7 +171,7 @@ classdef ClosedLoopResponse
             time_response_deg = cellfun(@rad2deg, time_response, UniformOutput=false);
 
 
-            wrap_plot = @(response)obj.plot_time_response(ax, response, obj.t);
+            wrap_plot = @(response)obj.plot_time_response(ax, response, obj.t, '-b');
             cellfun(wrap_plot, time_response_deg);
             hold off
             grid(ax, "on");
@@ -209,10 +212,10 @@ classdef ClosedLoopResponse
             transfer_function = tf(transfer_function);
         end
 
-        function plot_time_response(ax, response, t)
+        function plot_time_response(ax, response, t, color)
             colors = {'b', 'r', 'g'};
             for i=1:size(response, 2)
-                plot(ax, t, response(:, i), colors{i});
+                plot(ax, t, response(:, i), color);
             end
             
             hold on
