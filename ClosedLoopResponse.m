@@ -55,44 +55,67 @@ classdef ClosedLoopResponse
             % 3. Plot CAP graph to show complience with the requirements
 
             response_tf = multiModel2Cell(obj.ref_to_output);
-            ax4 = nexttile;
-            response_tf = cellfun(@ss, response_tf, UniformOutput=false);
-            [LOES, results] = cellfun(@loes_gen, response_tf, UniformOutput=false);
-            results = cell2mat(results);
-                
-            loes = cell2MultiModel(LOES);
+            % ax4 = nexttile;
+            % response_tf = cellfun(@ss, response_tf, UniformOutput=false);
+            % [LOES, results] = cellfun(@loes_gen, response_tf, UniformOutput=false);
+            % results = cell2mat(results);
+            % 
+            % loes = cell2MultiModel(LOES);
         
-            omega_sp = arrayfun(@(r)r.omega_sp, results);
+            % omega_sp = arrayfun(@(r)r.omega_sp, results);
             response_tf = cell2MultiModel(response_tf);
-            
+            % 
             grid_point = response_tf.SamplingGrid;
-            [~, a, ~, ~, ~] = atmosisa(grid_point.altitude);
-            velocity = a .* grid_point.mach;
-
-            n_alpha_fun = @(velocity, results) (velocity/ClosedLoopResponse.g) .* (1./results.t_theta_2);
-            
-            n_alpha = arrayfun(n_alpha_fun, velocity, results);
-            shortPeriodCategoryAPlot(ax4, n_alpha, omega_sp, "level","1");
+            % [~, a, ~, ~, ~] = atmosisa(grid_point.altitude);
+            % velocity = a .* grid_point.mach;
+            % 
+            % n_alpha_fun = @(velocity, results) (velocity/ClosedLoopResponse.g) .* (1./results.t_theta_2);
+            % 
+            % n_alpha = arrayfun(n_alpha_fun, velocity, results);
+            % shortPeriodCategoryAPlot(ax4, n_alpha, omega_sp);
 
             % Plot the Magnitude Requirments
-            s = tf('s');
-            mag_upper_bound = (3.16*s^2 + 31.61*s + 22.79) / (s^2 + 27.14*s + 1.84);
-            mag_lower_bound = (0.0955*s^2 + 9.92*s + 2.15) / (s^2 + 11.6*s + 4.96);
-    
-            dif = loes / obj.ref_to_output;
-            figure();
-            bodemag(dif, 'r', mag_lower_bound, 'r--', mag_upper_bound, 'r--', {0.1, 10});
-            legend("Low order equivalent system", "Bounds");
-            grid on
-            % Plot the Phase Requirements
+            % s = tf('s');
+            % mag_upper_bound = (3.16*s^2 + 31.61*s + 22.79) / (s^2 + 27.14*s + 1.84);
+            % mag_lower_bound = (0.0955*s^2 + 9.92*s + 2.15) / (s^2 + 11.6*s + 4.96);
+            % 
+            % dif = loes / obj.ref_to_output;
+            % figure();
+            % bodemag(dif, 'r', mag_lower_bound, 'r--', mag_upper_bound, 'r--', {0.1, 10});
+            % legend("Low order equivalent system", "Bounds");
+            % grid on
+            % % Plot the Phase Requirements
+            % 
+            % phase_upper_bound = (68.89*s^2+1100.12*s-275.22*exp(-0.0059*s)) / (s^2+39.94*s+9.99);
+            % phase_lower_bound = (475.32*s^2+184100*s+29456.1*exp(-0.0072*s)) / (s^2+11.66*s+0.0389);
+            % figure();
+            % h = bodeplot(dif, 'r', phase_lower_bound, 'r--', phase_upper_bound, 'r--', {0.1, 10});
+            % setoptions(h,'MagVisible','off');
+            % legend("Low order equivalent system", "Bounds");
+            % grid on
             
-            phase_upper_bound = (68.89*s^2+1100.12*s-275.22*exp(-0.0059*s)) / (s^2+39.94*s+9.99);
-            phase_lower_bound = (475.32*s^2+184100*s+29456.1*exp(-0.0072*s)) / (s^2+11.66*s+0.0389);
+            % figure();
+            % bode(obj.ref_to_output, loes, {0.1, 10});
+            % legend("HOS", "LOES");
+            % grid on
+
             figure();
-            h = bodeplot(dif, 'r', phase_lower_bound, 'r--', phase_upper_bound, 'r--', {0.1, 10});
-            setoptions(h,'MagVisible','off');
-            legend("Low order equivalent system", "Bounds");
+            pzplot(obj.ref_to_output);
+            legend("HOS");
             grid on
+
+            % figure();
+            % CAP = omega_sp.^2 ./ n_alpha;
+            % zeta = arrayfun(@(r)r.zeta_sp, results);
+            % patch([1.3 0.35 0.35 1.3], [3.6 3.6 .28 .28],'k', 'FaceColor', 'none');
+            % hold on
+            % patch([2 0.25 0.25 2], [10 10 0.16 0.16],'k', 'FaceColor', 'none');
+            % scatter(zeta, CAP);
+            % hold off
+
+            % figure();
+            % t_theta_2 = arrayfun(@(r)r.t_theta_2, results);
+            % surf(grid_point.altitude, grid_point.mach, t_theta_2)
 
         end
 

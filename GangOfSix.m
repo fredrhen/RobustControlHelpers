@@ -13,7 +13,7 @@ classdef GangOfSix
     end
 
     properties(Constant)
-        freq_to_plot = logspace(-2, 3, 100);
+        freq_to_plot = logspace(-2, 2, 100);
     end
     
     methods
@@ -54,13 +54,47 @@ classdef GangOfSix
             
 
         end
+            
+        function save_plot(obj, folder)
+            fig = figure();
+            ax = axes(fig);
+            plot_So(obj, ax);
+            exportgraphics(fig, folder+"So.pdf")
+
+            fig = figure();
+            ax = axes(fig);
+            plot_KSo(obj, ax);
+            exportgraphics(fig, folder+"KSo.pdf")
+
+            fig = figure();
+            ax = axes(fig);
+            plot_To(obj, ax);
+            exportgraphics(fig, folder+"To.pdf")
+
+            fig = figure();
+            ax = axes(fig);
+            plot_SoG(obj, ax);
+            exportgraphics(fig, folder+"SoG.pdf")
+
+            fig = figure();
+            ax = axes(fig);
+            plot_KSoF(obj, ax);
+            exportgraphics(fig, folder+"KSoF.pdf")
+
+            fig = figure();
+            ax = axes(fig);
+            plot_ToF(obj, ax);
+            exportgraphics(fig, folder+"ToF.pdf")
+
+
+        end
 
         function ax = plot_So(obj, ax)
             wrap_get_SO = @(tuner_obj)obj.get_tf(tuner_obj, obj.disturbance_output_ap, obj.system_output_ap, 1);
             So = arrayfun(wrap_get_SO, obj.sltuner_objs, UniformOutput=false);
             
             ax = obj.plot_tf(ax, So);
-            title(ax, "So");
+            %title(ax, "So");
             grid(ax, "on");
         end
 
@@ -69,7 +103,7 @@ classdef GangOfSix
             So = arrayfun(wrap_get_KSO, obj.sltuner_objs, UniformOutput=false);
             
             ax = obj.plot_tf(ax, So);
-            title(ax, "KSo");
+            %title(ax, "KSo");
             grid(ax, "on");
         end
 
@@ -78,7 +112,7 @@ classdef GangOfSix
             So = arrayfun(wrap_get_To, obj.sltuner_objs, UniformOutput=false);
             
             ax = obj.plot_tf(ax, So);
-            title(ax, "To");
+            %title(ax, "To");
             grid(ax, "on");
         end
 
@@ -87,7 +121,7 @@ classdef GangOfSix
             So = arrayfun(wrap_get_SoG, obj.sltuner_objs, UniformOutput=false);
             
             ax = obj.plot_tf(ax, So);
-            title(ax, "SoG");
+            %title(ax, "SoG");
             grid(ax, "on");
         end
 
@@ -96,7 +130,7 @@ classdef GangOfSix
             So = arrayfun(wrap_get_KSoF, obj.sltuner_objs, UniformOutput=false);
             
             ax = obj.plot_tf(ax, So);
-            title(ax, "KSoF");
+            %title(ax, "KSoF");
             grid(ax, "on");
         end
 
@@ -105,7 +139,7 @@ classdef GangOfSix
             So = arrayfun(wrap_get_ToF, obj.sltuner_objs, UniformOutput=false);
             
             ax = obj.plot_tf(ax, So);
-            title(ax, "ToF");
+            %title(ax, "ToF");
             grid(ax, "on");
         end
 
@@ -126,6 +160,8 @@ classdef GangOfSix
             H = squeeze(vertcat(H{:}));
             H = mag2db(H);
             semilogx(ax, GangOfSix.freq_to_plot, H, 'b');
+            xlabel("Frequency [rad/s]");
+            ylabel("Singular Value [dB]");
            
         end
 

@@ -64,7 +64,7 @@ classdef OpenLoopAnalysis
         end
 
         function plot_margins(obj)
-             fig = figure();
+            fig = figure();
             t = tiledlayout(fig, 2, 2);
             t.TileSpacing = 'compact';
 
@@ -83,6 +83,28 @@ classdef OpenLoopAnalysis
             ax4 = nexttile;
             obj.my_disk_phase_margin_plot(ax4, obj.plant_input_ap);
             title(ax4, "Min Disk Phase Margin @ Plant Input");
+        end
+
+        function plot_margin_save(obj, folder)
+            fig = figure();
+            ax1 = axes(fig);
+            obj.my_gain_margin_plot(ax1, obj.plant_input_ap);
+            exportgraphics(fig, folder+"gain_margin.pdf", Resolution=450);
+            
+            fig = figure();
+            ax1 = axes(fig);
+            obj.my_disk_gain_margin_plot(ax1, obj.plant_input_ap);
+            exportgraphics(fig, folder+"disk_gain_margin.pdf", Resolution=450);
+
+            fig = figure();
+            ax1 = axes(fig);
+            obj.my_phase_margin_plot(ax1, obj.plant_input_ap);
+            exportgraphics(fig, folder+"phase_margin.pdf", Resolution=450);
+
+            fig = figure();
+            ax1 = axes(fig);
+            obj.my_disk_phase_margin_plot(ax1, obj.plant_input_ap);
+            exportgraphics(fig, folder+"disk_phase_margin.pdf", Resolution=450);
         end
 
 
@@ -162,15 +184,13 @@ classdef OpenLoopAnalysis
 
             domain = cellfun(wrap_get_domain, loop_transfer{1});
 
-            altitude = [domain.altitude];
-            mach = [domain.mach];
+            domain = cellfun(@(x)x.SamplingGrid, loop_transfer{1});
+            alt_grid = arrayfun(@(x)x.altitude, domain);
+            mach_grid = arrayfun(@(x)x.mach, domain);
             
-            altitude = reshape(altitude, size(obj.sltuner_objs));
-            mach = reshape(mach, size(obj.sltuner_objs));
-
             min_Gm = min(Gm, [], 1);
             min_Gm = squeeze(min_Gm);
-            surf(altitude, mach, min_Gm);
+            surf(alt_grid, mach_grid, min_Gm);
 
             xlabel(ax, "Altitude [m]");
             ylabel(ax, "Mach []");
@@ -189,9 +209,13 @@ classdef OpenLoopAnalysis
                 [~, Pm(i, :, :), ~, ~] = cellfun(@margin, loop_transfer{i});
                 Pm(i, :, :) = abs(Pm(i, :, :));
             end
+            domain = cellfun(@(x)x.SamplingGrid, loop_transfer{1});
+            alt_grid = arrayfun(@(x)x.altitude, domain);
+            mach_grid = arrayfun(@(x)x.mach, domain);
+
             min_Pm = min(Pm, [], 1);
             min_Pm = squeeze(min_Pm);
-            surf(ax, min_Pm);
+            surf(ax, alt_grid, mach_grid, min_Pm);
             
             xlabel(ax, "Altitude [m]");
             ylabel(ax, "Mach []");

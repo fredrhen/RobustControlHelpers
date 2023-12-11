@@ -6,10 +6,10 @@ function [LOES] = modelOrderReduction(HOS,options)
         options.plot = 0
     end
     R = reducespec(HOS,"balanced");
-    R.Options.Goal = "absolute"; 
+    R.Options.Goal = "relative"; 
     R.Options.FreqIntervals = options.freqRange;
 
-    LOES = getrom(R,Order=2,Method="truncate");
+    LOES = getrom(R,Order=2);
 
     if options.plot
         figure; bodemag(LOES,HOS); legend("LOES","HOS","Location","best"); xlim(options.freqRange);
